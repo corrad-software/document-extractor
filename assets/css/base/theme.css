@@ -1,0 +1,97 @@
+:root {
+  /* Font settings */
+  --font-sans: "Geist";
+  --font-fallback: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-size: 14px;
+
+  /* Layout backgrounds */
+  --background: 255, 255, 255;
+  --content-background: 250, 250, 250;
+  --header-background: 255, 255, 255;
+  --sidebar-background: 255, 255, 255;
+
+  /* Core colors */
+  --foreground: 9, 9, 11;
+  --border: 228, 228, 231;
+  --ring: 9, 9, 11;
+  --radius: 0.25rem;
+
+  /* Component colors */
+  --accent: 244, 244, 245;
+  --accent-foreground: 9, 9, 11;
+
+  --card: 255, 255, 255;
+  --card-foreground: 9, 9, 11;
+
+  --muted: 244, 244, 245;
+  --muted-foreground: 113, 113, 122;
+
+  --popover: 255, 255, 255;
+  --popover-foreground: 9, 9, 11;
+
+  --primary: 9, 9, 11;
+  --primary-foreground: 250, 250, 250;
+
+  --secondary: 244, 244, 245;
+  --secondary-foreground: 9, 9, 11;
+
+  /* Status colors */
+  --danger: 239, 68, 68;
+  --danger-foreground: 255, 255, 255;
+
+  --info: 59, 130, 246;
+  --info-foreground: 255, 255, 255;
+
+  --success: 34, 197, 94;
+  --success-foreground: 255, 255, 255;
+
+  --warning: 245, 158, 11;
+  --warning-foreground: 255, 255, 255;
+}
+
+.theme-dark {
+  /* Layout backgrounds */
+  --background: 9, 9, 11;
+  --content-background: 9, 9, 11;
+  --header-background: 9, 9, 11;
+  --sidebar-background: 9, 9, 11;
+
+  /* Core colors */
+  --foreground: 250, 250, 250;
+  --border: 39, 39, 42;
+  --ring: 212, 212, 216;
+  --radius: 0.25rem;
+
+  /* Component colors */
+  --accent: 24, 24, 27;
+  --accent-foreground: 250, 250, 250;
+
+  --card: 9, 9, 11;
+  --card-foreground: 250, 250, 250;
+
+  --muted: 39, 39, 42;
+  --muted-foreground: 161, 161, 170;
+
+  --popover: 9, 9, 11;
+  --popover-foreground: 250, 250, 250;
+
+  --primary: 250, 250, 250;
+  --primary-foreground: 9, 9, 11;
+
+  --secondary: 39, 39, 42;
+  --secondary-foreground: 250, 250, 250;
+
+  /* Status colors */
+  --danger: 248, 113, 113;
+  --danger-foreground: 255, 255, 255;
+
+  --info: 96, 165, 250;
+  --info-foreground: 255, 255, 255;
+
+  --success: 74, 222, 128;
+  --success-foreground: 255, 255, 255;
+
+  --warning: 251, 191, 36;
+  --warning-foreground: 255, 255, 255;
+}

@@ -1,0 +1,13 @@
+@import "./base/theme.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[rgb(var(--background))] text-[rgb(var(--foreground))];
+    font-family: var(--font-sans), var(--font-fallback);
+    font-size: var(--font-size);
+  }
+}

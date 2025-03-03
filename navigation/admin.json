@@ -1,0 +1,180 @@
+{
+  "menu": [
+    {
+      "type": "section",
+      "title": "Platform",
+      "items": [
+        {
+          "name": "Home",
+          "icon": "ph:house",
+          "path": "/admin"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "title": "Components",
+      "items": [
+        {
+          "name": "Actions",
+          "icon": "ph:cursor-click",
+          "children": [{ "name": "Button", "path": "/admin/component/button" }]
+        },
+        {
+          "name": "Data Display",
+          "icon": "ph:squares-four",
+          "children": [
+            { "name": "Accordion", "path": "/admin/component/accordion" },
+            { "name": "Avatar", "path": "/admin/component/avatar" },
+            { "name": "Badge", "path": "/admin/component/badge" },
+            { "name": "Card", "path": "/admin/component/card" },
+            { "name": "Data Table", "path": "/admin/component/data-table" },
+            { "name": "Progress", "path": "/admin/component/progress" },
+            { "name": "Skeleton", "path": "/admin/component/skeleton" },
+            { "name": "Table", "path": "/admin/component/table" }
+          ]
+        },
+        {
+          "name": "Feedback",
+          "icon": "ph:bell",
+          "children": [
+            { "name": "Alert", "path": "/admin/component/alert" },
+            { "name": "Toast", "path": "/admin/component/toast" }
+          ]
+        },
+        {
+          "name": "Navigation",
+          "icon": "ph:navigation-arrow",
+          "children": [
+            { "name": "Breadcrumb", "path": "/admin/component/breadcrumb" },
+            { "name": "Stepper", "path": "/admin/component/stepper" },
+            { "name": "Tabs", "path": "/admin/component/tabs" }
+          ]
+        },
+        {
+          "name": "Overlay",
+          "icon": "ph:stack",
+          "children": [
+            { "name": "Context Menu", "path": "/admin/component/context-menu" },
+            { "name": "Dropdown", "path": "/admin/component/dropdown" },
+            { "name": "Hover Card", "path": "/admin/component/hover-card" },
+            { "name": "Modal", "path": "/admin/component/modal" },
+            { "name": "Popover", "path": "/admin/component/popover" },
+            { "name": "Tooltip", "path": "/admin/component/tooltip" }
+          ]
+        },
+        {
+          "name": "Layout",
+          "icon": "ph:layout",
+          "children": [
+            { "name": "Carousel", "path": "/admin/component/carousel" },
+            { "name": "Scroll Area", "path": "/admin/component/scroll-area" }
+          ]
+        },
+        {
+          "name": "Forms",
+          "icon": "ph:text-columns",
+          "children": [
+            {
+              "name": "Basic Inputs",
+              "children": [
+                { "name": "Text Input", "path": "/admin/form/element/input" },
+                { "name": "Textarea", "path": "/admin/form/element/textarea" },
+                { "name": "Select", "path": "/admin/form/element/select" },
+                { "name": "Radio", "path": "/admin/form/element/radio" },
+                { "name": "Checkbox", "path": "/admin/form/element/checkbox" }
+              ]
+            },
+            {
+              "name": "Advanced Inputs",
+              "children": [
+                { "name": "OTP Input", "path": "/admin/form/element/otp" },
+                {
+                  "name": "Input Mask",
+                  "path": "/admin/form/element/input-mask"
+                },
+                { "name": "Combobox", "path": "/admin/form/element/combobox" },
+                { "name": "Switch", "path": "/admin/form/element/switch" }
+              ]
+            },
+            {
+              "name": "Date & Time",
+              "children": [
+                { "name": "Date Picker", "path": "/admin/form/element/date" },
+                { "name": "Time Picker", "path": "/admin/form/element/time" }
+              ]
+            },
+            {
+              "name": "Rich Inputs",
+              "children": [
+                { "name": "Color Picker", "path": "/admin/form/element/color" },
+                { "name": "File Upload", "path": "/admin/form/element/file" }
+              ]
+            },
+            {
+              "name": "Form Layouts",
+              "children": [
+                {
+                  "name": "Form Section",
+                  "path": "/admin/form/layout/section"
+                },
+                { "name": "Form Grid", "path": "/admin/form/layout/grid" },
+                { "name": "Form Wizard", "path": "/admin/form/layout/wizard" }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "title": "Setting",
+      "items": [
+        {
+          "name": "Settings",
+          "icon": "ph:gear",
+          "children": [
+            {
+              "name": "Profile",
+              "path": "/admin/settings/profile",
+              "icon": "ph:user"
+            },
+            {
+              "name": "Appearance",
+              "path": "/admin/settings/appearance",
+              "icon": "ph:paint-brush"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "title": "Examples",
+      "items": [
+        {
+          "name": "Management",
+          "icon": "ph:folder",
+          "children": [
+            {
+              "name": "Users",
+              "children": [
+                { "name": "List", "path": "#" },
+                { "name": "Create", "path": "#" },
+                { "name": "Groups", "path": "#" }
+              ]
+            },
+            {
+              "name": "Products",
+              "children": [
+                { "name": "Catalog", "path": "#" },
+                { "name": "Categories", "path": "#" },
+                { "name": "Inventory", "path": "#" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
