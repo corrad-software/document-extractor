@@ -63,6 +63,37 @@ export default defineEventHandler(async (event) => {
         error: error.message
       };
     }
+
+    // Get the file name from the Content-Disposition header if available
+    const contentDisposition = filePart.filename || 'document.pdf';
+    const fileName = contentDisposition.split('\\').pop().split('/').pop();
+
+    // Insert document record into the documents table
+    const { error: dbError } = await supabase
+      .from('documents')
+      .insert({
+        id: fileId,
+        file_name: fileName,
+        file_size: filePart.data.length,
+        mime_type: filePart.type,
+        storage_path: path,
+        status: 'pending',
+        processed_pages: 0,
+        metadata: {
+          originalName: fileName,
+          uploadedAt: new Date().toISOString()
+        }
+      });
+
+    if (dbError) {
+      console.error('Database insert error:', dbError);
+      // Try to delete the uploaded file if database insert fails
+      await supabase.storage.from(bucket).remove([path]);
+      return {
+        success: false,
+        error: `Failed to record document: ${dbError.message}`
+      };
+    }
     
     return {
       success: true,

@@ -22,61 +22,72 @@ export default defineEventHandler(async (event) => {
       config.supabaseServiceKey
     );
 
-    // List all files in the document's folder
-    const { data, error } = await supabase.storage
-      .from("document-images")
-      .list(documentId);
+    // First, get the document details
+    const { data: document, error: documentError } = await supabase
+      .from("documents")
+      .select("*")
+      .eq("id", documentId)
+      .single();
 
-    if (error) {
-      throw new Error(`Failed to fetch document images: ${error.message}`);
+    if (documentError) {
+      throw new Error(`Failed to fetch document: ${documentError.message}`);
     }
 
-    // If no images found, return empty array
-    if (!data || data.length === 0) {
-      console.log("No images found for document:", documentId);
+    if (!document) {
+      return {
+        success: false,
+        error: "Document not found",
+      };
+    }
+
+    // Fetch all pages for this document, ordered by page number
+    const { data: pages, error: pagesError } = await supabase
+      .from("document_pages")
+      .select("*")
+      .eq("document_id", documentId)
+      .order("page_number", { ascending: true });
+
+    if (pagesError) {
+      throw new Error(`Failed to fetch document pages: ${pagesError.message}`);
+    }
+
+    // If no pages found, return empty array
+    if (!pages || pages.length === 0) {
+      console.log("No pages found for document:", documentId);
       return {
         success: true,
+        document,
         images: [],
       };
     }
 
-    console.log("Found images:", data.length);
+    console.log("Found pages:", pages.length);
 
-    // Sort the images by page number
-    const sortedImages = data
-      .filter((item) => item.name.endsWith(".png")) // Only include PNG files
-      .sort((a, b) => {
-        // Extract page numbers from filenames (format: pageX.png)
-        const pageA = parseInt(a.name.match(/page(\d+)/)?.[1] || "0");
-        const pageB = parseInt(b.name.match(/page(\d+)/)?.[1] || "0");
-        return pageA - pageB;
-      });
-
-    // Get public URLs for each image
-    const images = sortedImages.map((item) => {
-      const { data: urlData } = supabase.storage
-        .from("document-images")
-        .getPublicUrl(`${documentId}/${item.name}`);
-
-      // Extract page number from filename
-      const pageMatch = item.name.match(/page(\d+)/);
-      const pageNumber = pageMatch ? parseInt(pageMatch[1]) : null;
-
-      return {
-        name: item.name,
-        path: `${documentId}/${item.name}`,
-        url: urlData.publicUrl,
-        page: pageNumber,
-        size: item.metadata?.size || 0,
-        created: item.created_at,
-      };
-    });
+    // Map the pages to the expected format
+    const images = pages.map((page) => ({
+      name: `page${page.page_number}.png`,
+      path: page.image_path,
+      url: page.image_url,
+      page: page.page_number,
+      size: page.metadata?.size || 0,
+      created: page.created_at,
+      metadata: page.metadata
+    }));
 
     console.log("Processed images:", images.length);
 
     return {
       success: true,
-      documentId,
+      document: {
+        id: document.id,
+        fileName: document.file_name,
+        fileSize: document.file_size,
+        pageCount: document.page_count,
+        processedPages: document.processed_pages,
+        status: document.status,
+        createdAt: document.created_at,
+        updatedAt: document.updated_at
+      },
       images,
     };
   } catch (error) {

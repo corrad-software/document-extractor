@@ -27,6 +27,7 @@
     "@tiptap/vue-3": "^2.11.5",
     "@vueuse/core": "^11.3.0",
     "ai": "^4.1.47",
+    "date-fns": "^4.1.0",
     "meilisearch": "^0.48.2",
     "nuxt": "^3.15.4",
     "pdf-lib": "^1.17.1",

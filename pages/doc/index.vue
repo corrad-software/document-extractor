@@ -1,10 +1,11 @@
 <script setup>
 definePageMeta({
-  title: "Document Upload",
+  title: "Documents",
 });
 
 import { ref, onMounted } from "vue";
 import { createClient } from "@supabase/supabase-js";
+import { formatDistance } from "date-fns";
 
 const config = useRuntimeConfig();
 const supabase = createClient(
@@ -12,22 +13,14 @@ const supabase = createClient(
   config.public.supabaseKey
 );
 
-const toast = useToast();
 const router = useRouter();
+const toast = useToast();
 
-const isUploading = ref(false);
-const isProcessing = ref(false);
-const uploadProgress = ref(0);
-const processProgress = ref(0);
-const currentPage = ref(0);
-const totalPages = ref(0);
-const documentUrl = ref(null);
-const documentId = ref(null);
-const isInitializing = ref(true);
-const initError = ref(null);
-const processingStatus = ref("");
-const fileName = ref("");
-const fileSize = ref(0);
+const documents = ref([]);
+const isLoading = ref(true);
+const error = ref(null);
+const showDeleteModal = ref(false);
+const documentToDelete = ref(null);
 
 // Format file size for display
 const formatFileSize = (bytes) => {
@@ -38,457 +31,259 @@ const formatFileSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 };
 
-// Function to subscribe to document progress
-const subscribeToProgress = (docId) => {
-  const channel = supabase
-    .channel(`document-${docId}`)
-    .on(
-      "postgres_changes",
+// Format date for display
+const formatDate = (date) => {
+  try {
+    return formatDistance(new Date(date), new Date(), { addSuffix: true });
+  } catch (e) {
+    return "Invalid date";
+  }
+};
+
+// Get status badge variant
+const getStatusVariant = (status) => {
+  switch (status) {
+    case "completed":
+      return "success";
+    case "processing":
+      return "warning";
+    case "error":
+      return "danger";
+    default:
+      return "secondary";
+  }
+};
+
+// Fetch documents
+const fetchDocuments = async () => {
+  try {
+    isLoading.value = true;
+    error.value = null;
+
+    const { data: response } = await useFetch("/api/documents");
+
+    if (!response.value.success) {
+      throw new Error(response.value.error || "Failed to fetch documents");
+    }
+
+    documents.value = response.value.data || [];
+  } catch (e) {
+    console.error("Error fetching documents:", e);
+    error.value = e.message;
+    toast.add({
+      title: "Error",
+      description: "Failed to fetch documents",
+      type: "error",
+    });
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// View document
+const viewDocument = (id) => {
+  router.push(`/doc/view/${id}`);
+};
+
+// Open delete confirmation modal
+const confirmDelete = (doc) => {
+  documentToDelete.value = doc;
+  showDeleteModal.value = true;
+};
+
+// Delete document
+const deleteDocument = async () => {
+  if (!documentToDelete.value) return;
+
+  try {
+    const response = await $fetch(
+      `/api/documents/${documentToDelete.value.id}`,
       {
-        event: "*",
-        schema: "public",
-        table: "document_progress",
-        filter: `id=eq.${docId}`,
-      },
-      (payload) => {
-        const progress = payload.new;
-        console.log("Progress update:", progress);
-
-        // Update progress state
-        processProgress.value = progress.progress || 0;
-        currentPage.value = progress.current_page || 0;
-        totalPages.value = progress.total_pages || 0;
-        processingStatus.value = progress.message || "";
-
-        // Handle completion
-        if (progress.status === "complete") {
-          isProcessing.value = false;
-          channel.unsubscribe();
-        }
-
-        // Handle errors
-        if (progress.status === "error") {
-          isProcessing.value = false;
-          channel.unsubscribe();
-          toast.add({
-            title: "Error",
-            description: progress.error || "Processing failed",
-            type: "error",
-          });
-        }
+        method: "DELETE",
       }
-    )
-    .subscribe((status) => {
-      console.log("Subscription status:", status);
-    });
-
-  return channel;
-};
-
-// Initialize Supabase storage buckets
-onMounted(async () => {
-  try {
-    isInitializing.value = true;
-
-    // Initialize documents bucket
-    const { data: docsData } = await useFetch("/api/supabase/init");
-
-    if (!docsData.value?.success) {
-      throw new Error(
-        docsData.value?.error || "Failed to initialize documents storage"
-      );
-    }
-
-    // Initialize document-images bucket
-    const { data: imagesData } = await useFetch("/api/supabase/init-images");
-
-    if (!imagesData.value?.success) {
-      throw new Error(
-        imagesData.value?.error || "Failed to initialize images storage"
-      );
-    }
-  } catch (error) {
-    console.error("Initialization error:", error);
-    initError.value = error.message || "Failed to initialize storage";
-    toast.add({
-      title: "Error",
-      description: initError.value,
-      type: "error",
-    });
-  } finally {
-    isInitializing.value = false;
-  }
-});
-
-const submitForm = () => {
-  const form = document.getElementById("documentUploadForm");
-  if (form) {
-    form.dispatchEvent(new Event("submit"));
-  }
-};
-
-// Upload file to server
-const uploadToServer = async (file) => {
-  try {
-    isUploading.value = true;
-
-    // Create form data
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("bucket", "documents");
-
-    console.log("Uploading file:", file.name);
-
-    // Upload via server endpoint
-    const response = await fetch("/api/supabase/upload", {
-      method: "POST",
-      body: formData,
-    });
-
-    const result = await response.json();
-
-    if (!result.success) {
-      throw new Error(result.error || "Server upload failed");
-    }
-
-    console.log("Server upload successful:", result);
-
-    return {
-      data: {
-        path: result.path,
-        id: result.id,
-      },
-      error: null,
-    };
-  } catch (error) {
-    console.error("Server upload error:", error);
-    return {
-      data: null,
-      error,
-    };
-  }
-};
-
-// Process PDF to extract pages as images
-const processPdf = async (file, docId) => {
-  try {
-    isProcessing.value = true;
-    processProgress.value = 0;
-    currentPage.value = 0;
-    totalPages.value = 0;
-    processingStatus.value = "Initializing PDF processing...";
-
-    console.log(
-      "Processing file:",
-      file.name,
-      "Size:",
-      file.size,
-      "Type:",
-      file.type
     );
-    console.log("Document ID:", docId);
 
-    // Subscribe to progress updates
-    const channel = subscribeToProgress(docId);
-
-    // Create form data
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("documentId", docId);
-
-    // Verify formData contains the file
-    const formFile = formData.get("file");
-    if (!formFile) {
-      throw new Error("Failed to append file to FormData");
+    if (!response.success) {
+      throw new Error(response.error || "Failed to delete document");
     }
 
-    // Process the PDF
-    const response = await fetch("/api/pdf/process", {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(
-        "PDF processing response error:",
-        response.status,
-        errorText
-      );
-      throw new Error(`Failed to process PDF: ${response.status} ${errorText}`);
-    }
-
-    const result = await response.json();
-
-    if (!result.success) {
-      throw new Error(result.error || "PDF processing failed");
-    }
-
-    return {
-      success: true,
-      pageCount: result.pageCount,
-      images: result.images,
-      imageUrls: result.imageUrls,
-    };
-  } catch (error) {
-    console.error("PDF processing error:", error);
-    processingStatus.value = "Processing failed";
-    isProcessing.value = false;
-    return {
-      success: false,
-      error: error.message,
-    };
-  }
-};
-
-const handleSubmit = async (formData) => {
-  try {
-    if (!formData.document) {
-      toast.add({
-        title: "Error",
-        description: "Please select a document to upload",
-        type: "error",
-      });
-      return;
-    }
-
-    const file = formData.document;
-    fileName.value = file.name;
-    fileSize.value = file.size;
-
-    // Check if it's a PDF
-    if (file.type !== "application/pdf") {
-      toast.add({
-        title: "Invalid File Type",
-        description: "Only PDF files are supported",
-        type: "error",
-      });
-      return;
-    }
-
-    // Check file size (10MB limit)
-    if (file.size > 10 * 1024 * 1024) {
-      toast.add({
-        title: "File Too Large",
-        description: "Maximum file size is 10MB",
-        type: "error",
-      });
-      return;
-    }
-
-    // Upload the file
-    uploadProgress.value = 0;
-    const uploadResult = await uploadToServer(file);
-
-    if (uploadResult.error) {
-      throw new Error(
-        uploadResult.error.message || "Failed to upload document"
-      );
-    }
-
-    uploadProgress.value = 100;
-    documentId.value = uploadResult.data.id;
+    documents.value = documents.value.filter(
+      (doc) => doc.id !== documentToDelete.value.id
+    );
+    showDeleteModal.value = false;
+    documentToDelete.value = null;
 
     toast.add({
-      title: "Upload Complete",
-      description: "Document uploaded successfully. Starting processing...",
+      title: "Success",
+      description: "Document deleted successfully",
       type: "success",
     });
-
-    // Process the PDF to extract pages as images
-    const processingResult = await processPdf(file, documentId.value);
-
-    if (!processingResult.success) {
-      throw new Error(processingResult.error || "Failed to process document");
-    }
-
-    toast.add({
-      title: "Processing Complete",
-      description: `Document processed successfully. ${processingResult.pageCount} pages extracted.`,
-      type: "success",
-    });
-
-    // Redirect to the document viewer
-    router.push(`/doc/view/${documentId.value}`);
-  } catch (error) {
-    console.error("Upload error:", error);
+  } catch (e) {
+    console.error("Error deleting document:", e);
     toast.add({
       title: "Error",
-      description: error.message || "Failed to upload document",
+      description: "Failed to delete document",
       type: "error",
-      duration: 5000,
     });
-  } finally {
-    isUploading.value = false;
   }
 };
+
+// Initialize
+onMounted(() => {
+  fetchDocuments();
+});
 </script>
 
 <template>
-  <div
-    class="container mx-auto py-10 flex items-center justify-center min-h-[80vh]"
-  >
-    <Card class="w-full max-w-lg">
-      <CardHeader>
-        <CardTitle>Upload Document</CardTitle>
-        <CardDescription>
-          Upload your PDF document for processing
-        </CardDescription>
-      </CardHeader>
-
-      <div v-if="isInitializing" class="p-6 flex justify-center">
-        <div class="flex items-center gap-2">
-          <Icon name="ph:spinner" class="h-5 w-5 animate-spin text-primary" />
-          <span class="text-sm">Initializing storage...</span>
-        </div>
+  <div class="container mx-auto py-8 px-4">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-semibold">Documents</h1>
+        <p class="text-muted-foreground mt-1">Manage your uploaded documents</p>
       </div>
+      <NuxtLink to="/doc/upload">
+        <Button variant="primary" class="flex items-center gap-2">
+          <Icon name="ph:plus" class="h-4 w-4" />
+          Upload Document
+        </Button>
+      </NuxtLink>
+    </div>
 
-      <div v-else-if="initError" class="p-6">
-        <div
-          class="p-4 bg-danger/10 border border-danger/20 rounded-md text-danger text-sm"
-        >
-          <p class="font-medium">Storage initialization failed</p>
-          <p class="text-xs mt-1">{{ initError }}</p>
-          <p class="text-xs mt-2">
-            Please try refreshing the page or contact support.
-          </p>
-        </div>
+    <!-- Loading State -->
+    <Card v-if="isLoading" class="p-12">
+      <div class="flex flex-col items-center justify-center gap-4">
+        <Icon name="ph:spinner" class="h-8 w-8 animate-spin text-primary" />
+        <p>Loading documents...</p>
       </div>
-
-      <template v-else>
-        <CardContent>
-          <FormKit
-            type="form"
-            id="documentUploadForm"
-            @submit="handleSubmit"
-            :actions="false"
-          >
-            <FormKit
-              type="dropzone"
-              name="document"
-              label="Document"
-              help="Upload your PDF document"
-              validation="required|mime:application/pdf|size:10"
-              :validation-messages="{
-                required: 'Please select a document',
-                mime: 'Only PDF files are supported',
-                size: 'Maximum file size is 10MB'
-              }"
-              accept=".pdf"
-              maxSize="10485760"
-              :multiple="false"
-            />
-
-            <div class="mt-4 text-sm text-muted-foreground space-y-1">
-              <p class="flex items-center gap-1">
-                <Icon name="ph:file-pdf" class="h-4 w-4" />
-                Supported format: PDF only
-              </p>
-              <p class="flex items-center gap-1">
-                <Icon name="ph:warning" class="h-4 w-4" />
-                Maximum file size: 10MB
-              </p>
-            </div>
-
-            <!-- File Info -->
-            <div v-if="fileName && !isUploading && !isProcessing" class="mt-4">
-              <div class="p-3 bg-muted/20 rounded-md space-y-1">
-                <p class="text-sm font-medium flex items-center gap-2">
-                  <Icon name="ph:file-text" class="h-4 w-4" />
-                  {{ fileName }}
-                </p>
-                <p class="text-xs text-muted-foreground">
-                  Size: {{ formatFileSize(fileSize) }}
-                </p>
-              </div>
-            </div>
-
-            <!-- Upload Progress -->
-            <div v-if="isUploading" class="mt-4 space-y-2">
-              <div class="flex items-center justify-between text-sm">
-                <div class="flex items-center gap-2">
-                  <Icon name="ph:cloud-upload" class="h-4 w-4 text-primary animate-bounce" />
-                  <span>Uploading {{ fileName }}...</span>
-                </div>
-                <span class="text-muted-foreground font-medium">{{ Math.round(uploadProgress) }}%</span>
-              </div>
-              <Progress :value="uploadProgress" class="w-full" />
-              <p class="text-xs text-muted-foreground">
-                {{ formatFileSize(fileSize) }} total
-              </p>
-            </div>
-
-            <!-- Processing Progress -->
-            <div v-if="isProcessing" class="mt-4 space-y-4">
-              <div class="space-y-2">
-                <div class="flex items-center justify-between text-sm">
-                  <div class="flex items-center gap-2">
-                    <Icon name="ph:cpu" class="h-4 w-4 text-primary animate-pulse" />
-                    <span>{{ processingStatus }}</span>
-                  </div>
-                  <span class="text-muted-foreground font-medium">{{ Math.round(processProgress) }}%</span>
-                </div>
-                <Progress :value="processProgress" class="w-full" />
-              </div>
-
-              <!-- Page Progress -->
-              <div v-if="totalPages > 0" class="p-3 bg-muted/20 rounded-md space-y-2">
-                <div class="flex items-center justify-between text-sm">
-                  <span class="flex items-center gap-2">
-                    <Icon name="ph:files" class="h-4 w-4" />
-                    Pages Processed
-                  </span>
-                  <span class="font-medium">{{ currentPage }} / {{ totalPages }}</span>
-                </div>
-                <div class="h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div
-                    class="h-full bg-primary transition-all duration-300 ease-out"
-                    :style="{ width: `${(currentPage / totalPages) * 100}%` }"
-                  />
-                </div>
-                <p class="text-xs text-muted-foreground">
-                  Processing page {{ currentPage }} of {{ totalPages }}
-                </p>
-              </div>
-            </div>
-          </FormKit>
-        </CardContent>
-        <CardFooter class="flex justify-end gap-3">
-          <Button
-            variant="outline"
-            type="button"
-            :disabled="isUploading || isProcessing"
-            @click="router.push('/doc')"
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            @click="submitForm"
-            :disabled="isUploading || isProcessing"
-          >
-            <span
-              v-if="isUploading || isProcessing"
-              class="flex items-center gap-2"
-            >
-              <Icon name="ph:spinner" class="h-4 w-4 animate-spin" />
-              <span>{{ isProcessing ? "Processing..." : "Uploading..." }}</span>
-            </span>
-            <span v-else class="flex items-center gap-2">
-              <Icon name="ph:upload-simple" class="h-4 w-4" />
-              Upload Document
-            </span>
-          </Button>
-        </CardFooter>
-      </template>
     </Card>
+
+    <!-- Error State -->
+    <Card v-else-if="error" class="p-8">
+      <div
+        class="p-4 bg-danger/10 border border-danger/20 rounded-md text-danger"
+      >
+        <p class="font-medium">Failed to load documents</p>
+        <p class="text-sm mt-1">{{ error }}</p>
+        <Button variant="outline" class="mt-4" @click="fetchDocuments">
+          Try Again
+        </Button>
+      </div>
+    </Card>
+
+    <!-- Empty State -->
+    <Card v-else-if="documents.length === 0" class="p-12">
+      <div class="flex flex-col items-center justify-center text-center">
+        <Icon name="ph:files" class="h-12 w-12 text-muted-foreground mb-4" />
+        <h2 class="text-xl font-medium mb-2">No Documents Found</h2>
+        <p class="text-muted-foreground mb-6">
+          Get started by uploading your first document
+        </p>
+        <NuxtLink to="/doc/upload">
+          <Button variant="primary" class="flex items-center gap-2">
+            <Icon name="ph:plus" class="h-4 w-4" />
+            Upload Document
+          </Button>
+        </NuxtLink>
+      </div>
+    </Card>
+
+    <!-- Documents Table -->
+    <Card v-else class="p-0">
+      <Table hover>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Pages</TableHead>
+            <TableHead>Size</TableHead>
+            <TableHead>Uploaded</TableHead>
+            <TableHead class="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="doc in documents" :key="doc.id">
+            <TableCell>
+              <div class="flex items-center gap-2">
+                <Icon
+                  name="ph:file-pdf"
+                  class="h-4 w-4 text-muted-foreground"
+                />
+                <span class="font-medium">{{ doc.file_name }}</span>
+              </div>
+            </TableCell>
+            <TableCell>
+              <Badge :variant="getStatusVariant(doc.status)">
+                {{ doc.status }}
+              </Badge>
+            </TableCell>
+            <TableCell>
+              <span v-if="doc.page_count" class="flex items-center gap-1">
+                <Icon name="ph:files" class="h-4 w-4" />
+                {{ doc.processed_pages }}/{{ doc.page_count }}
+              </span>
+              <span v-else>-</span>
+            </TableCell>
+            <TableCell>
+              {{ formatFileSize(doc.file_size) }}
+            </TableCell>
+            <TableCell>
+              <span class="text-muted-foreground">
+                {{ formatDate(doc.created_at) }}
+              </span>
+            </TableCell>
+            <TableCell>
+              <div class="flex items-center justify-end gap-2">
+                <Button
+                  v-if="doc.status === 'completed'"
+                  variant="ghost"
+                  size="sm"
+                  @click="viewDocument(doc.id)"
+                >
+                  <Icon name="ph:eye" class="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class="text-danger hover:text-danger"
+                  @click="confirmDelete(doc)"
+                >
+                  <Icon name="ph:trash" class="h-4 w-4" />
+                </Button>
+              </div>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    </Card>
+
+    <!-- Delete Confirmation Modal -->
+    <Modal v-model:open="showDeleteModal" size="md">
+      <ModalHeader>
+        <ModalTitle>Delete Document</ModalTitle>
+        <ModalClose />
+      </ModalHeader>
+      <ModalBody>
+        <p>
+          Are you sure you want to delete "{{ documentToDelete?.file_name }}"?
+        </p>
+        <p class="text-sm text-muted-foreground mt-2">
+          This action cannot be undone.
+        </p>
+      </ModalBody>
+      <ModalFooter>
+        <Button variant="outline" @click="showDeleteModal = false"
+          >Cancel</Button
+        >
+        <Button variant="danger" @click="deleteDocument">Delete</Button>
+      </ModalFooter>
+    </Modal>
   </div>
 </template>
 
 <style lang="scss" scoped>
 .container {
-  padding-left: 1rem;
-  padding-right: 1rem;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 </style>
